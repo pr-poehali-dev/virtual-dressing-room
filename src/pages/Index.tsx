@@ -15,10 +15,30 @@ const Index = () => {
   const [isDragging, setIsDragging] = useState(false);
 
   const clothingOptions = [
-    { id: 'hoodie' as ClothingType, name: 'Худи', icon: 'Shirt' },
-    { id: 'jacket' as ClothingType, name: 'Куртка', icon: 'Wind' },
-    { id: 'blazer' as ClothingType, name: 'Пиджак', icon: 'Briefcase' },
-    { id: 'tshirt' as ClothingType, name: 'Футболка', icon: 'User' },
+    { 
+      id: 'hoodie' as ClothingType, 
+      name: 'Худи', 
+      icon: 'Shirt',
+      image: 'https://cdn.poehali.dev/projects/15365aa1-9b6b-4020-aff7-abf52c180bcb/files/ae11b343-83ad-45d7-baac-ad7c04c92db3.jpg'
+    },
+    { 
+      id: 'jacket' as ClothingType, 
+      name: 'Куртка', 
+      icon: 'Wind',
+      image: 'https://cdn.poehali.dev/projects/15365aa1-9b6b-4020-aff7-abf52c180bcb/files/5a663a75-68f6-43f7-8ad3-d9542b35f952.jpg'
+    },
+    { 
+      id: 'blazer' as ClothingType, 
+      name: 'Пиджак', 
+      icon: 'Briefcase',
+      image: 'https://cdn.poehali.dev/projects/15365aa1-9b6b-4020-aff7-abf52c180bcb/files/652e9f8a-7c0c-4271-8d72-34045a679935.jpg'
+    },
+    { 
+      id: 'tshirt' as ClothingType, 
+      name: 'Футболка', 
+      icon: 'User',
+      image: 'https://cdn.poehali.dev/projects/15365aa1-9b6b-4020-aff7-abf52c180bcb/files/ae11b343-83ad-45d7-baac-ad7c04c92db3.jpg'
+    },
   ];
 
   const handleFileUpload = (file: File) => {
@@ -48,7 +68,7 @@ const Index = () => {
     setIsDragging(false);
   };
 
-  const handleTryOn = () => {
+  const handleTryOn = async () => {
     if (!uploadedImage || !selectedClothing) return;
 
     setIsProcessing(true);
@@ -66,14 +86,37 @@ const Index = () => {
       if (currentStep < progressSteps.length) {
         setProgress(progressSteps[currentStep].value);
         currentStep++;
-      } else {
-        clearInterval(interval);
-        setTimeout(() => {
-          setResult(uploadedImage);
-          setIsProcessing(false);
-        }, 500);
       }
     }, 1200);
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/tryon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userImage: uploadedImage,
+          clothingType: selectedClothing
+        })
+      });
+
+      const data = await response.json();
+      clearInterval(interval);
+      
+      if (data.success) {
+        setProgress(100);
+        setTimeout(() => {
+          setResult(data.resultImage);
+          setIsProcessing(false);
+        }, 500);
+      } else {
+        setIsProcessing(false);
+        alert('Ошибка при обработке изображения');
+      }
+    } catch (error) {
+      clearInterval(interval);
+      setIsProcessing(false);
+      alert('Не удалось подключиться к серверу');
+    }
   };
 
   const handleReset = () => {
@@ -181,21 +224,21 @@ const Index = () => {
                       <button
                         key={option.id}
                         onClick={() => setSelectedClothing(option.id)}
-                        className={`p-6 rounded-xl border-2 transition-all hover:scale-105 ${
+                        className={`p-4 rounded-xl border-2 transition-all hover:scale-105 overflow-hidden ${
                           selectedClothing === option.id
                             ? 'border-secondary bg-secondary/10 shadow-lg'
                             : 'border-border hover:border-secondary/50'
                         }`}
                       >
                         <div className="flex flex-col items-center gap-3">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            selectedClothing === option.id
-                              ? 'bg-secondary text-white'
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            <Icon name={option.icon} size={24} />
+                          <div className="w-full aspect-square rounded-lg overflow-hidden bg-gray-100">
+                            <img 
+                              src={option.image} 
+                              alt={option.name}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-                          <span className="font-medium">{option.name}</span>
+                          <span className="font-medium text-sm">{option.name}</span>
                         </div>
                       </button>
                     ))}
@@ -272,7 +315,16 @@ const Index = () => {
                   <Icon name="RotateCcw" size={20} className="mr-2" />
                   Примерить ещё раз
                 </Button>
-                <Button size="lg" variant="outline">
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = result || '';
+                    link.download = `try-on-result-${Date.now()}.png`;
+                    link.click();
+                  }}
+                >
                   <Icon name="Download" size={20} className="mr-2" />
                   Скачать результат
                 </Button>
